@@ -1,0 +1,16 @@
+{
+  "name": "whatsapp-node-app",
+  "version": "1.0.0",
+  "description": "A Node.js application to interact with WhatsApp Web and Slack",
+  "scripts": {
+    "start": "node app.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@slack/bolt": "^5.0.0",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

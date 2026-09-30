@@ -1,0 +1,28 @@
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies and runtime output
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+coverage/
+downloads/
+
+# WhatsApp Web session and cache
+.wwebjs_auth/
+.wwebjs_cache/
+sessions/
+.sessions/
+
+# Local credentials and private keys
+secrets/
+*.pem
+*.key
+
+# Operating system files
+.DS_Store
+Thumbs.db
