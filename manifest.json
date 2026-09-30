@@ -1,0 +1,41 @@
+{
+  "project": "Slack-WhatsApp Codex Agents",
+  "version": "1.1",
+  "agent_count": 9,
+  "validation": "PENDING_CODEX_RUNTIME_DISCOVERY",
+  "codex_config": ".codex/config.toml",
+  "codex_agent_directory": ".codex/agents",
+  "human_spec_directory": "docs/agents",
+  "development_document_directory": "docs/development",
+  "development_documents": [
+    "docs/development/LOCAL_DEVELOPMENT.md"
+  ],
+  "human_specifications": [
+    "docs/agents/00-orchestrator.md",
+    "docs/agents/01-repository-auditor.md",
+    "docs/agents/02-architecture-core.md",
+    "docs/agents/03-slack-specialist.md",
+    "docs/agents/04-whatsapp-specialist.md",
+    "docs/agents/05-data-reliability.md",
+    "docs/agents/06-qa-e2e.md",
+    "docs/agents/07-devops-security.md",
+    "docs/agents/08-documentation.md"
+  ],
+  "shared_documents": [
+    "docs/agents/README.md",
+    "docs/agents/SHARED_PROTOCOL.md",
+    "docs/agents/STANDARD_TEMPLATE.md",
+    "docs/agents/VALIDATION_REPORT.md"
+  ],
+  "executable_agents": [
+    ".codex/agents/orchestrator.toml",
+    ".codex/agents/repository-auditor.toml",
+    ".codex/agents/architecture-core.toml",
+    ".codex/agents/slack-specialist.toml",
+    ".codex/agents/whatsapp-specialist.toml",
+    ".codex/agents/data-reliability.toml",
+    ".codex/agents/qa-e2e.toml",
+    ".codex/agents/devops-security.toml",
+    ".codex/agents/documentation.toml"
+  ]
+}
