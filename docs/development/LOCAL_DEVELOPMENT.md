@@ -106,9 +106,9 @@ docker compose --env-file ../../.env down
 | Thread sem mapeamento | Teste offline; mensagem humana fora da thread foi rejeitada em execução real |
 | Slack rejeita publicação | Teste offline; nenhum mapeamento é registrado nessa falha |
 
-Os sete testes atuais ficam em `upstream/WhatsAppInSlack/app/test/messageRouting.test.js`. O container usado nesta etapa iniciou saudável e os sete testes passaram via Compose.
+Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 13 testes offline: sete cenários de roteamento Slack/mock e seis cenários de persistência JSON. A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
 
-As alterações recentes para persistência e múltiplas conversas ainda não têm validação automatizada registrada.
+O laboratório no VPS foi iniciado e ficou saudável após reinício do container. Uma mensagem mock foi publicada no Slack. A validação completa do fluxo de entrada e do mapping recuperado após reinício depende de uma pessoa responder àquela thread; em seguida, confira o inbox local sem divulgar seu conteúdo.
 
 ## Mapa de manutenção: onde corrigir
 

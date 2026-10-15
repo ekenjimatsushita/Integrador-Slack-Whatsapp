@@ -6,9 +6,9 @@
 
 ---
 
-## Estado atual da implementação local (29/09/2026)
+## Estado atual da implementação e laboratório VPS (15/10/2026)
 
-A fatia local está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. O mock guarda mensagens e simula eventos recebidos em memória; nenhum cliente ou conta WhatsApp real é iniciado. Testes offline cobrem normalização, loop prevention, canal permitido e mapping de thread. A prova de evento humano real via Socket Mode depende de uma resposta manual em uma thread mock publicada no canal. Persistência, mídia e integração com WhatsApp real continuam pendentes.
+A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. Uma mensagem mock foi publicada pelo VPS no canal Slack configurado; a validação de uma resposta humana após reinício ainda depende da equipe responder nessa thread. Mídia, deduplicação e integração com WhatsApp real continuam pendentes.
 
 ## 1. Objetivo deste documento
 
@@ -1702,7 +1702,7 @@ O README deve explicar:
 - [ ] WhatsApp adapter;
 - [ ] texto bidirecional;
 - [ ] threads;
-- [ ] persistência;
+- [x] persistência JSON para o laboratório mock, com testes de reload, limite, concorrência e estado inválido; a persistência de produção ainda requer decisão de banco e operação;
 - [ ] deduplicação;
 - [ ] logs.
 
