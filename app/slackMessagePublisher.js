@@ -24,7 +24,7 @@ function createSlackMessagePublisher({ slackClient, channelId, conversationRegis
     if (!response || response.ok !== true || !response.ts) {
       throw new Error('Slack rejected the mock message.');
     }
-    conversationRegistry.register(channelId, response.ts, message.conversationId);
+    await conversationRegistry.register(channelId, response.ts, message.conversationId);
     return response;
   };
 }

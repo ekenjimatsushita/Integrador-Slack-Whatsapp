@@ -1,8 +1,9 @@
 class MockWhatsAppAdapter {
-  constructor({ maxMessages = 500 } = {}) {
+  constructor({ maxMessages = 500, initialMessages = [], stateStore } = {}) {
     this.maxMessages = maxMessages;
-    this.messages = [];
+    this.messages = initialMessages.map(message => ({ ...message, metadata: { ...message.metadata } }));
     this.messageListeners = [];
+    this.stateStore = stateStore;
   }
 
   async sendMessage(outboundMessage) {
@@ -20,8 +21,13 @@ class MockWhatsAppAdapter {
       receivedAt: new Date().toISOString(),
     };
 
-    this.messages.push(message);
-    if (this.messages.length > this.maxMessages) this.messages.shift();
+    if (this.stateStore) {
+      await this.stateStore.appendMessage(message, this.maxMessages);
+      this.messages = this.stateStore.listMessages();
+    } else {
+      this.messages.push(message);
+      if (this.messages.length > this.maxMessages) this.messages.shift();
+    }
     return message;
   }
 
