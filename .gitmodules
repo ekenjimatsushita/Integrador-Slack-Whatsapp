@@ -1,0 +1,3 @@
+[submodule "upstream/WhatsAppInSlack"]
+	path = upstream/WhatsAppInSlack
+	url = ../Integrador-Slack-Whatsapp.git

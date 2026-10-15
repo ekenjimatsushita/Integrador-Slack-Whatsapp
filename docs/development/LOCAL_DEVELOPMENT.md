@@ -9,6 +9,8 @@ Há dois tipos de validação:
 1. **Testes offline:** exercitam handlers, router, mock e mapeamento de threads sem Slack, rede ou credenciais.
 2. **Teste de integração local com Slack:** o container conecta ao Slack real via Socket Mode e publica/recebe mensagens de teste no canal configurado. O WhatsApp continua sendo somente mock.
 
+O estado do mock é salvo em `/data/mock-state.json` dentro do volume Docker `mock_state`. Ele inclui os vínculos de thread e o texto das últimas 500 mensagens capturadas. Trate esse volume como dado privado da equipe e faça backup antes de removê-lo.
+
 ```mermaid
 flowchart LR
   H[Pessoa responde em uma thread Slack] --> S[Bolt Socket Mode]
@@ -71,7 +73,7 @@ $testThread = Invoke-RestMethod -Method Post `
 $testThread | Select-Object status, conversationId, threadTs
 ```
 
-Isso simula uma mensagem recebida do WhatsApp e publica uma mensagem identificada como mock no canal Slack configurado. É um **envio real ao Slack**, não um envio ao WhatsApp. A rota aceita uma tentativa por execução do app; ao reiniciar o container, o limite e o registro em memória são reiniciados.
+Isso simula uma mensagem recebida do WhatsApp e publica uma mensagem identificada como mock no canal Slack configurado. É um **envio real ao Slack**, não um envio ao WhatsApp. Repita a chamada para criar outras conversas mock; cada thread criada fica mapeada de forma persistente.
 
 No Slack, responda **dentro da thread** recém-criada. A resposta humana percorre Bolt → handler → router → mock. Uma mensagem nova no canal, fora de uma thread mapeada, chega ao router, mas é rejeitada com `conversation-not-found` para não ser enviada a uma conversa indeterminada.
 
@@ -83,6 +85,8 @@ Invoke-RestMethod http://127.0.0.1:3000/debug/router
 ```
 
 O inbox contém o texto da mensagem humana, portanto mantenha o endpoint local e não copie a resposta para logs ou relatórios sem necessidade.
+
+O endpoint pode criar várias conversas mock por execução. Cada thread e cada mensagem capturada são persistidas; após reiniciar o container, respostas nas threads já registradas continuam associadas à conversa mock correta.
 
 Para encerrar:
 
@@ -104,6 +108,8 @@ docker compose --env-file ../../.env down
 
 Os sete testes atuais ficam em `upstream/WhatsAppInSlack/app/test/messageRouting.test.js`. O container usado nesta etapa iniciou saudável e os sete testes passaram via Compose.
 
+As alterações recentes para persistência e múltiplas conversas ainda não têm validação automatizada registrada.
+
 ## Mapa de manutenção: onde corrigir
 
 | Sintoma ou regra a alterar | Arquivo responsável |
@@ -111,7 +117,7 @@ Os sete testes atuais ficam em `upstream/WhatsAppInSlack/app/test/messageRouting
 | Socket Mode, startup, endpoints locais ou assinatura `app.message()` | `upstream/WhatsAppInSlack/app/app.js` |
 | Ignorar bot/subtypes e converter o evento Slack para campos normalizados | `upstream/WhatsAppInSlack/app/slackMessageHandler.js` |
 | Canal permitido, conteúdo válido, resolução da conversa e chamada a `sendMessage()` | `upstream/WhatsAppInSlack/app/application/MessageRouter.js` |
-| Chave que associa canal + thread raiz a `conversationId` | `upstream/WhatsAppInSlack/app/adapters/slack/ConversationRegistry.js` |
+| Chave que associa canal + thread raiz a `conversationId` | `upstream/WhatsAppInSlack/app/adapters/slack/ConversationRegistry.js` e `app/persistence/JsonStateStore.js` |
 | Mensagens capturadas e eventos simulados pelo WhatsApp mock | `upstream/WhatsAppInSlack/app/adapters/MockWhatsAppAdapter.js` |
 | Formato de publicação no Slack e registro da thread após sucesso | `upstream/WhatsAppInSlack/app/slackMessagePublisher.js` |
 | Cenários de roteamento, loop, canal e threads | `upstream/WhatsAppInSlack/app/test/messageRouting.test.js` |
@@ -120,11 +126,11 @@ Os sete testes atuais ficam em `upstream/WhatsAppInSlack/app/test/messageRouting
 
 ### Limites intencionais do mock
 
-- `ConversationRegistry` e inbox são mantidos em memória e desaparecem ao reiniciar o app.
+- O inbox persiste apenas as últimas 500 mensagens capturadas; o conteúdo inclui texto enviado pela equipe no Slack.
 - Só mensagens de texto estão implementadas neste caminho.
 - O `MessageRouter` exige uma thread previamente registrada para identificar a conversa WhatsApp de destino.
 - Nenhum cliente, QR code, sessão ou credencial WhatsApp é iniciado ou requerido.
-- Persistência de conversas, mídia e adapter WhatsApp real são etapas futuras e não devem ser introduzidos ao alterar esta parte sem decisão explícita de arquitetura.
+- Persistência de mídia e adapter WhatsApp real são etapas futuras e não devem ser introduzidos ao alterar esta parte sem decisão explícita de arquitetura.
 
 ## Diagnóstico seguro de credenciais
 
