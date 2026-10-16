@@ -8,6 +8,7 @@ Este workspace contém as especificações dos agentes Codex e uma cópia de tra
 - `manifest.json`: índice do projeto que relaciona as especificações e os agentes executáveis.
 - `docs/agents/`: especificações completas, protocolo compartilhado e validação documental.
 - [`docs/development/LOCAL_DEVELOPMENT.md`](docs/development/LOCAL_DEVELOPMENT.md): guia da etapa local com WhatsApp mock, testes, operação e mapa de manutenção.
+- [`docs/deployment/VPS_MOCK_LAB.md`](docs/deployment/VPS_MOCK_LAB.md): deploy atual do laboratório no VPS, testes, segurança e operação.
 - `PLANEJAMENTO_INTEGRACAO_SLACK_WHATSAPP.md`: plano de arquitetura e implantação.
 - [`upstream/WhatsAppInSlack/`](upstream/WhatsAppInSlack/): submódulo Git com o código da aplicação e sua licença GPL-3. O branch `master` contém este workspace; clone-o com `git clone --branch master --recurse-submodules <url-do-repositório>` para obter também o commit exato do app.
 
