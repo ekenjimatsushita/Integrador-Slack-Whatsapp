@@ -50,7 +50,7 @@ curl -fsS -X POST http://127.0.0.1:3000/mock/whatsapp/send-test
 
 Responda na thread no Slack. Em seguida, confira localmente `/mock/whatsapp/messages` e `/debug/router`. O primeiro endpoint contém texto da equipe: ao registrar evidência, use contagens e IDs, nunca o corpo da mensagem. Reinicie o serviço e responda novamente à mesma thread para validar que o mapping foi restaurado do volume.
 
-Execução validada em 15/10/2026: 13 testes offline passaram dentro do container no VPS; a chamada de smoke test foi aceita pelo Slack; após reinício, a resposta humana foi roteada e capturada. Os contadores mostraram `received: 1`, `forwarded: 1`, sem rejeições. O estado foi confirmado por contagens sem exibir o conteúdo.
+Execução validada em 15/10/2026: 13 testes offline passaram dentro do container no VPS; a chamada de smoke test foi aceita pelo Slack; após reinício, a resposta humana foi roteada e capturada. Depois do hardening, uma nova resposta humana na thread também foi encaminhada: `received: 1`, `forwarded: 1`, sem rejeições; o mock passou a registrar duas mensagens. Um backup manual feito em seguida confirmou uma conversa e duas mensagens na cópia, sem exibir o conteúdo.
 
 ## Acesso da equipe e rede
 
