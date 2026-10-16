@@ -8,7 +8,7 @@
 
 ## Estado atual da implementação e laboratório VPS (15/10/2026)
 
-A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. Uma mensagem mock foi publicada pelo VPS no canal Slack configurado; a validação de uma resposta humana após reinício ainda depende da equipe responder nessa thread. Mídia, deduplicação e integração com WhatsApp real continuam pendentes.
+A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `lion-whatsapp-lab_mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os 13 testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. A thread de teste continuou mapeada após reinício; uma resposta humana chegou ao mock e foi persistida. Mídia, deduplicação e integração com WhatsApp real continuam pendentes. O container usa usuário não root, filesystem raiz somente leitura, `/tmp` temporário e sem capabilities adicionais.
 
 ## 1. Objetivo deste documento
 

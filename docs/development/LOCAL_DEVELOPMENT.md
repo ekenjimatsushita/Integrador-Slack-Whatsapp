@@ -108,7 +108,11 @@ docker compose --env-file ../../.env down
 
 Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 13 testes offline: sete cenários de roteamento Slack/mock e seis cenários de persistência JSON. A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
 
-O laboratório no VPS foi iniciado e ficou saudável após reinício do container. Uma mensagem mock foi publicada no Slack. A validação completa do fluxo de entrada e do mapping recuperado após reinício depende de uma pessoa responder àquela thread; em seguida, confira o inbox local sem divulgar seu conteúdo.
+O laboratório no VPS `179.198.97.107` iniciou saudável. Uma pessoa respondeu à thread publicada pelo VPS; o router registrou `received: 1`, `forwarded: 1`, sem rejeições, e a resposta foi capturada no volume. O container foi reiniciado antes da resposta, validando a recuperação do mapping. A verificação do inbox deve mostrar somente contagens/IDs, sem imprimir o texto da mensagem em relatórios.
+
+O endpoint `/health` confirma que o processo HTTP está respondendo; o campo `slack: started` não monitora o estado atual do WebSocket. Para confirmar Slack ponta a ponta, use uma resposta humana em thread de laboratório. A configuração atual mantém `/health`, `/mock/whatsapp/messages`, `/debug/router` e `/mock/whatsapp/send-test` acessíveis apenas no loopback do VPS; os três últimos não possuem autenticação, e o inbox contém conteúdo da equipe.
+
+O procedimento, a configuração efetiva do VPS, os testes de implantação e os pontos operacionais estão em [`docs/deployment/VPS_MOCK_LAB.md`](../deployment/VPS_MOCK_LAB.md).
 
 ## Mapa de manutenção: onde corrigir
 
