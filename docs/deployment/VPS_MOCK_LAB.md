@@ -89,7 +89,26 @@ sudo systemctl show lion-whatsapp-lab-backup.service -p Result
 sudo find /var/backups/lion-whatsapp-lab -maxdepth 1 -type f -printf '%f %s bytes\n'
 ```
 
-Para restaurar, primeiro pare o app. Selecione um backup validado e copie-o para o volume `lion-whatsapp-lab_mock_state` como `/data/mock-state.json`, com proprietário UID/GID `1000:1000` e modo `0600`; então inicie o app e confira `/health` e os contadores sem imprimir o conteúdo das mensagens. Faça primeiro um ensaio usando um volume Docker temporário e nunca use `docker compose down -v` no projeto ativo. O procedimento operacional completo deve ser exercitado antes de qualquer restauração dos dados ativos.
+O ensaio de restauração foi executado em 16/10/2026 com um volume temporário: uma cópia do backup foi lida pelo UID 1000 e validada com modo `0600`; o volume temporário foi removido. Para restaurar os dados ativos, escolha explicitamente o nome do backup e pare o app:
+
+```bash
+cd /opt/lion-ai/slack-whatsapp/upstream/WhatsAppInSlack
+backup_file='mock-state-AAAAMMDDTHHMMSSZ.json'
+docker compose -p lion-whatsapp-lab --env-file .env stop app
+```
+
+Valide o schema, escreva um arquivo temporário no volume e substitua o estado atomicamente:
+
+```bash
+docker run --rm --network none --read-only --user 0:0 \
+  --mount "type=bind,source=/var/backups/lion-whatsapp-lab/$backup_file,target=/backup/state.json,readonly" \
+  --mount type=volume,source=lion-whatsapp-lab_mock_state,target=/restore \
+  --entrypoint node lion-whatsapp-lab-app:latest -e 'const fs=require("node:fs"); const raw=fs.readFileSync("/backup/state.json","utf8"); const s=JSON.parse(raw); if(s.version!==1||!Array.isArray(s.conversations)||!Array.isArray(s.messages)) process.exit(1); const tmp="/restore/.mock-state.json.restore"; fs.writeFileSync(tmp,raw,{mode:0o600}); fs.chownSync(tmp,1000,1000); fs.chmodSync(tmp,0o600); fs.renameSync(tmp,"/restore/mock-state.json");'
+docker compose -p lion-whatsapp-lab --env-file .env up -d app
+curl -fsS http://127.0.0.1:3000/health
+```
+
+Se a validação/restauração falhar antes da substituição, inicie o serviço novamente para voltar ao estado atual. Confira as contagens sem imprimir as mensagens. Nunca use `docker compose down -v` no projeto ativo. O backup local ainda não protege contra perda do VPS; configure uma cópia externa antes de armazenar dados reais.
 
 ## Próximas etapas de desenvolvimento
 
