@@ -73,14 +73,28 @@ Então acesse `http://127.0.0.1:3000` localmente. Não publique `/mock/whatsapp/
 - Dependências de produção: `npm audit --omit=dev` reportou zero vulnerabilidades conhecidas na verificação de 15/10/2026.
 - Firewall: UFW ativo; regras observadas liberam SSH 22 e Nginx 80/443. Nenhuma regra foi alterada para esta aplicação.
 - SSH do host: a configuração efetiva observada permite login root e autenticação por senha e chave pública. Não foi alterada porque afeta a administração do VPS e os demais serviços; o responsável pelo host deve avaliar migrar para chave somente e uma conta administrativa adequada.
-- Dados: o volume persiste reinícios/substituições do container, mas não protege contra perda do VPS. Não há backup externo automatizado documentado ou configurado nesta etapa. Definir destino, retenção e restauração antes de armazenar dados reais.
+- Backup: um timer do systemd executa backup diário às 03:15 UTC, com atraso aleatório de até 10 minutos e retenção de 14 dias. Os arquivos ficam em `/var/backups/lion-whatsapp-lab`, acessíveis apenas por root (diretório `0700`, arquivos `0600`). O serviço valida o JSON sem exibir seu conteúdo. Consulte abaixo os comandos de operação e restauração.
+- Limite do backup: a cópia está no mesmo VPS e não protege contra perda do host ou do disco. Ainda é necessário definir um destino externo antes de usar dados reais.
 - O healthcheck HTTP só prova que o processo responde; o campo `slack: started` não representa o estado atual do WebSocket. O teste de resposta real em thread é a evidência funcional do Slack.
 - Recursos não têm limites explícitos no Compose. A leitura inicial após deploy mostrou cerca de 30 MiB para o app; continuar acompanhando CPU/memória junto aos demais containers.
+
+## Backup e restauração
+
+O script é instalado em `/usr/local/sbin/backup-lion-whatsapp-lab`; o timer e o serviço são `lion-whatsapp-lab-backup.timer` e `lion-whatsapp-lab-backup.service`. Para conferir a agenda e executar/verificar um backup manual:
+
+```bash
+systemctl list-timers lion-whatsapp-lab-backup.timer
+sudo systemctl start lion-whatsapp-lab-backup.service
+sudo systemctl show lion-whatsapp-lab-backup.service -p Result
+sudo find /var/backups/lion-whatsapp-lab -maxdepth 1 -type f -printf '%f %s bytes\n'
+```
+
+Para restaurar, primeiro pare o app. Selecione um backup validado e copie-o para o volume `lion-whatsapp-lab_mock_state` como `/data/mock-state.json`, com proprietário UID/GID `1000:1000` e modo `0600`; então inicie o app e confira `/health` e os contadores sem imprimir o conteúdo das mensagens. Faça primeiro um ensaio usando um volume Docker temporário e nunca use `docker compose down -v` no projeto ativo. O procedimento operacional completo deve ser exercitado antes de qualquer restauração dos dados ativos.
 
 ## Próximas etapas de desenvolvimento
 
 1. Continuar o piloto interno do mock e registrar falhas/reconexões.
-2. Definir backup e restauração do volume, sem remover `mock_state`.
+2. Ensaiar restauração a partir do backup num volume temporário e definir destino externo para as cópias.
 3. Corrigir health/readiness para expor estado real do Socket Mode sem revelar dados.
 4. Implementar deduplicação e estratégia de retry antes de conectar um provider real.
 5. Escolher e encapsular o WhatsApp Adapter conforme o plano. Até essa decisão, manter o mock e não adicionar mídia ou sessão WhatsApp real.

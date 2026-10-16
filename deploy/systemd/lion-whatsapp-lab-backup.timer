@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily backup of Lion WhatsApp mock state
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+Unit=lion-whatsapp-lab-backup.service
+
+[Install]
+WantedBy=timers.target
