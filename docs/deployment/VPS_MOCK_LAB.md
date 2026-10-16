@@ -89,7 +89,7 @@ sudo systemctl show lion-whatsapp-lab-backup.service -p Result
 sudo find /var/backups/lion-whatsapp-lab -maxdepth 1 -type f -printf '%f %s bytes\n'
 ```
 
-O ensaio de restauração foi executado em 16/10/2026 com um volume temporário: uma cópia do backup foi lida pelo UID 1000 e validada com modo `0600`; o volume temporário foi removido. Para restaurar os dados ativos, escolha explicitamente o nome do backup e pare o app:
+O ensaio de restauração foi executado em 16/10/2026 com um volume temporário: o backup mais recente (uma conversa, duas mensagens) foi lido pelo UID 1000 e validado com modo `0600`; o volume temporário foi removido. Para restaurar os dados ativos, escolha explicitamente o nome do backup e pare o app:
 
 ```bash
 cd /opt/lion-ai/slack-whatsapp/upstream/WhatsAppInSlack
