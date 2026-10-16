@@ -8,7 +8,7 @@
 
 ## Estado atual da implementação e laboratório VPS (15/10/2026)
 
-A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `lion-whatsapp-lab_mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os 13 testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. A thread de teste continuou mapeada após reinício; uma resposta humana chegou ao mock e foi persistida. Mídia, deduplicação e integração com WhatsApp real continuam pendentes. O container usa usuário não root, filesystem raiz somente leitura, `/tmp` temporário e sem capabilities adicionais.
+A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. A instalação Slack é configurada por variáveis de ambiente e suporta um workspace por execução; a configuração atual usa o workspace de laboratório/pessoal. O setup do workspace corporativo está descrito em `docs/deployment/SLACK_WORKSPACE_SETUP.md`, com manifesto Slack reutilizável. OAuth e execução simultânea em vários workspaces ainda não estão implementados. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `lion-whatsapp-lab_mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os 13 testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. A thread de teste continuou mapeada após reinício; respostas humanas chegaram ao mock e foram persistidas. Mídia, deduplicação e integração com WhatsApp real continuam pendentes. O container usa usuário não root, filesystem raiz somente leitura, `/tmp` temporário e sem capabilities adicionais.
 
 ## 1. Objetivo deste documento
 
@@ -77,7 +77,7 @@ O código do Slack e as regras de negócio devem continuar praticamente independ
 Este planejamento considera inicialmente:
 
 - uso interno;
-- workspace Slack criado especificamente para testes;
+- workspace Slack pessoal/de laboratório durante o piloto; a migração para o workspace corporativo está planejada;
 - número de WhatsApp dedicado ou descartável para teste;
 - hospedagem local;
 - baixo volume de mensagens;
@@ -102,7 +102,7 @@ Recomenda-se deixar inicialmente fora de escopo:
 - CRM;
 - chatbot com IA;
 - múltiplos números de WhatsApp;
-- múltiplos workspaces Slack;
+- execução simultânea em múltiplos workspaces Slack e fluxo OAuth de distribuição;
 - gestão avançada de permissões;
 - dashboards;
 - métricas complexas;

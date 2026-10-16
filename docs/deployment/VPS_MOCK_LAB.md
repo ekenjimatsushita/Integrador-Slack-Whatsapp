@@ -19,7 +19,7 @@ Este ambiente conecta Slack Bolt via Socket Mode ao `MockWhatsAppAdapter`. Ele n
 | Arquivo de estado no container | `/data/mock-state.json` |
 | Usuário do container | `node` (UID 1000) |
 
-O `.env` do VPS foi copiado do arquivo local por SCP, pertence a `root:root` e está em modo `600`. Ele contém `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` e `SLACK_CHANNEL_ID`; seus valores não devem ser impressos, copiados para relatórios ou versionados. O projeto usa `APP_HOST_PORT=3000` como default se essa variável não estiver definida.
+O `.env` do VPS foi copiado do arquivo local por SCP, pertence a `root:root` e está em modo `600`. Ele contém `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` e `SLACK_CHANNEL_ID`; seus valores não devem ser impressos, copiados para relatórios ou versionados. A instalação ativa usa o Slack pessoal/de laboratório e ainda não foi migrada para o workspace corporativo. O projeto usa `APP_HOST_PORT=3000` como default se essa variável não estiver definida. Consulte [`SLACK_WORKSPACE_SETUP.md`](SLACK_WORKSPACE_SETUP.md) para criar a instalação corporativa e planejar a troca.
 
 ## Atualizar e executar
 

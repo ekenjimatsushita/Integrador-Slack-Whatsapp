@@ -34,6 +34,8 @@ Requisitos:
 
 Os valores dos tokens são secretos: não os inclua em documentação, comandos, screenshots, commits ou logs. O app token precisa de `connections:write`. Para receber mensagens de canal, assine `message.channels` e conceda `channels:history`; para canal privado, use `message.groups` e `groups:history`. Para publicar mensagens de teste, o bot precisa de `chat:write` e precisa ser membro do canal. Consulte a documentação Slack para [Socket Mode](https://docs.slack.dev/tools/bolt-js/concepts/socket-mode/), [eventos de mensagem](https://docs.slack.dev/tools/bolt-js/creating-an-app/#subscribing-to-events) e [`chat.postMessage`](https://docs.slack.dev/reference/methods/chat.postMessage/).
 
+O serviço atual é configurável para **um workspace por execução** através dessas variáveis. Para preparar a instalação no workspace corporativo, use o manifesto em `deploy/slack/lion-whatsapp-lab-manifest.yml` e siga [`docs/deployment/SLACK_WORKSPACE_SETUP.md`](../deployment/SLACK_WORKSPACE_SETUP.md). Instalação simultânea em múltiplos workspaces exige OAuth e armazenamento de instalações, ainda fora do escopo.
+
 ## Rodar os testes offline
 
 Na pasta `upstream/WhatsAppInSlack/app`, execute:
