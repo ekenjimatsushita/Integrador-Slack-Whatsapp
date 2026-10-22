@@ -127,6 +127,7 @@ O procedimento, a configuração efetiva do VPS, os testes de implantação e os
 | Mensagens capturadas e eventos simulados pelo WhatsApp mock | `upstream/WhatsAppInSlack/app/adapters/MockWhatsAppAdapter.js` |
 | Formato de publicação no Slack e registro da thread após sucesso | `upstream/WhatsAppInSlack/app/slackMessagePublisher.js` |
 | Cenários de roteamento, loop, canal e threads | `upstream/WhatsAppInSlack/app/test/messageRouting.test.js` |
+| Persistência: reload, atualização de mapping, limite, concorrência e estado inválido | `upstream/WhatsAppInSlack/app/test/jsonStateStore.test.js` |
 | Variáveis injetadas, porta local e healthcheck | `upstream/WhatsAppInSlack/docker-compose.yml` |
 | Runtime e instalação de dependências | `upstream/WhatsAppInSlack/Dockerfile` e `app/package.json` |
 

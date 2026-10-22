@@ -10,6 +10,10 @@
   "development_documents": [
     "docs/development/LOCAL_DEVELOPMENT.md"
   ],
+  "deployment_documents": [
+    "docs/deployment/VPS_MOCK_LAB.md",
+    "docs/deployment/SLACK_WORKSPACE_SETUP.md"
+  ],
   "human_specifications": [
     "docs/agents/00-orchestrator.md",
     "docs/agents/01-repository-auditor.md",

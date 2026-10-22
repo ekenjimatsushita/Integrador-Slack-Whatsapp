@@ -113,7 +113,7 @@ Se a validação/restauração falhar antes da substituição, inicie o serviço
 ## Próximas etapas de desenvolvimento
 
 1. Continuar o piloto interno do mock e registrar falhas/reconexões.
-2. Ensaiar restauração a partir do backup num volume temporário e definir destino externo para as cópias.
+2. Definir destino externo para as cópias de backup (o ensaio de restauração em volume temporário foi concluído em 16/10/2026).
 3. Corrigir health/readiness para expor estado real do Socket Mode sem revelar dados.
 4. Implementar deduplicação e estratégia de retry antes de conectar um provider real.
 5. Escolher e encapsular o WhatsApp Adapter conforme o plano. Até essa decisão, manter o mock e não adicionar mídia ou sessão WhatsApp real.
