@@ -7,6 +7,7 @@ const { createWhatsAppAdapter } = require('./adapters/createWhatsAppAdapter');
 const { ConversationRegistry } = require('./adapters/slack/ConversationRegistry');
 const { EventDeduplicator } = require('./application/EventDeduplicator');
 const { MessageRouter } = require('./application/MessageRouter');
+const { httpErrorHandler } = require('./httpErrorHandler');
 const { createSlackFailureNotifier } = require('./slackFailureNotifier');
 const { createSlackMessageHandler } = require('./slackMessageHandler');
 const { createSlackMessagePublisher } = require('./slackMessagePublisher');
@@ -71,6 +72,7 @@ async function main() {
     response.json(messageRouter.getStats());
   });
   if (whatsappAdapter.name === 'mock') registerMockEndpoints(httpApp, { channelId, whatsappAdapter });
+  httpApp.use(httpErrorHandler);
 
   const port = Number(process.env.PORT || 3000);
   await slackApp.start();

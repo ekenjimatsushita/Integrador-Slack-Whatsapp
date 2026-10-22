@@ -1,5 +1,6 @@
 FROM node:22.23.3-bookworm-slim
 
+ENV NODE_ENV=production
 WORKDIR /usr/src/app
 
 COPY app/package.json app/package-lock.json ./

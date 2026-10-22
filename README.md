@@ -45,6 +45,7 @@ Shut down the app with `docker compose down`. No real WhatsApp account is requir
 - `app/application/MessageRouter.js`: enforces channel and conversation routing in both directions, deduplication, retries, and failure notices.
 - `app/application/EventDeduplicator.js`: remembers processed Slack/WhatsApp event keys (latest 5000, persisted).
 - `app/adapters/createWhatsAppAdapter.js`: selects the adapter from `WHATSAPP_ADAPTER` (only `mock` today).
+- `app/httpErrorHandler.js`: returns generic JSON errors instead of Express' default page, which echoes request fragments and stack traces.
 - `app/slackFailureNotifier.js`: posts fixed notices in a thread for failed deliveries and unsupported attachments.
 - `app/adapters/slack/ConversationRegistry.js`: maps Slack thread roots to conversation IDs and back, so a conversation keeps one thread.
 - `app/persistence/JsonStateStore.js`: atomically stores mock messages and mappings in `/data/mock-state.json`.
