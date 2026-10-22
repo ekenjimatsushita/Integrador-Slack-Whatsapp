@@ -8,8 +8,10 @@
   "human_spec_directory": "docs/agents",
   "development_document_directory": "docs/development",
   "development_documents": [
-    "docs/development/LOCAL_DEVELOPMENT.md"
+    "docs/development/LOCAL_DEVELOPMENT.md",
+    "docs/development/NEXT_STEPS.md"
   ],
+  "agent_entrypoint": "AGENTS.md",
   "deployment_documents": [
     "docs/deployment/VPS_MOCK_LAB.md",
     "docs/deployment/SLACK_WORKSPACE_SETUP.md"

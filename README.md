@@ -4,6 +4,8 @@ Este workspace contém as especificações dos agentes Codex e uma cópia de tra
 
 ## Organização
 
+- [`AGENTS.md`](AGENTS.md) (importado por `CLAUDE.md`): regras para agentes e ponto de partida de cada sessão.
+- [`docs/development/NEXT_STEPS.md`](docs/development/NEXT_STEPS.md): estado atual, bloqueios, decisões pendentes e backlog priorizado.
 - `.codex/config.toml` e `.codex/agents/`: agentes de projeto carregáveis pelo Codex.
 - `manifest.json`: índice do projeto que relaciona as especificações e os agentes executáveis.
 - `docs/agents/`: especificações completas, protocolo compartilhado e validação documental.

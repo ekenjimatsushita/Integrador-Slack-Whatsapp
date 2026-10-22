@@ -38,6 +38,8 @@ docker compose -p lion-whatsapp-lab --env-file .env ps
 curl -fsS http://127.0.0.1:3000/health
 ```
 
+Se `deploy/vps/backup-lion-whatsapp-lab.sh` mudou no commit, reinstale-o (a partir de `/opt/lion-ai/slack-whatsapp`): `install -o root -g root -m 0700 deploy/vps/backup-lion-whatsapp-lab.sh /usr/local/sbin/backup-lion-whatsapp-lab`. Antes de implantar uma versão do app, faça um backup manual e marque a imagem atual para rollback (`docker tag lion-whatsapp-lab-app:latest lion-whatsapp-lab-app:rollback-<commit>`).
+
 `config --quiet` evita imprimir a configuração interpolada. Não use `docker compose down -v`: isso remove o volume com mappings e mensagens.
 
 ## Teste Slack ↔ mock no VPS
@@ -85,7 +87,7 @@ Então acesse `http://127.0.0.1:3000` localmente. Não publique `/mock/whatsapp/
 - Porta do serviço: publicada apenas em loopback.
 - Container: executa como `node`, não é privilegiado, não tem capabilities adicionais, usa filesystem raiz somente leitura, `/tmp` em tmpfs e `no-new-privileges`.
 - Volume: único mount de dados da aplicação, `/data`, gravável pelo usuário `node`; o estado JSON tem modo `600` dentro do container.
-- Dependências de produção: `npm audit --omit=dev` reportou zero vulnerabilidades conhecidas na verificação de 15/10/2026.
+- Dependências de produção: `npm audit --omit=dev` reportou zero vulnerabilidades conhecidas nas verificações de 15/10/2026 e 22/10/2026.
 - Firewall: UFW ativo; regras observadas liberam SSH 22 e Nginx 80/443. Nenhuma regra foi alterada para esta aplicação.
 - SSH do host: a configuração efetiva observada permite login root e autenticação por senha e chave pública. Não foi alterada porque afeta a administração do VPS e os demais serviços; o responsável pelo host deve avaliar migrar para chave somente e uma conta administrativa adequada.
 - Backup: até 22/10/2026 o script preservava a data de modificação do estado copiado (`docker cp` mantém o mtime original), então todos os backups tinham a data de 16/10 e a retenção os apagaria juntos por volta de 30/10. O script corrigido aplica `touch` na cópia; o comportamento do `docker cp` e a correção foram reproduzidos localmente em 22/10/2026. Depois de instalá-lo, ajuste uma vez os arquivos existentes conforme a seção de backup.
@@ -144,8 +146,8 @@ Se a validação/restauração falhar antes da substituição, inicie o serviço
 ## Próximas etapas de desenvolvimento
 
 1. Continuar o piloto interno do mock e registrar falhas/reconexões.
-2. Definir destino externo para as cópias de backup (o ensaio de restauração em volume temporário foi concluído em 16/10/2026).
-3. Implantar no VPS a versão com health real, deduplicação, retry, thread por conversa e avisos de falha/anexo; repetir o smoke test incluindo uma segunda mensagem na mesma conversa (`conversationId` no corpo do `send-test`) e um anexo na thread.
+2. Definir destino externo para as cópias de backup (restauração completa em volume novo validada em 22/10/2026).
+3. Adicionar alerta externo para `/health` em 503/`unhealthy` e decidir o tratamento de edições no Slack (hoje ignoradas em silêncio). A versão com health real, deduplicação, retry, thread por conversa e avisos foi implantada e validada em 22/10/2026.
 4. Antes de dados reais: SSH somente com chave, sem login root por senha; avaliar `fail2ban`; backup externo; política de retenção das mensagens.
 5. Escolher e encapsular o WhatsApp Adapter conforme o plano. Até essa decisão, manter o mock e não adicionar mídia ou sessão WhatsApp real.
 6. Atualizar os critérios do piloto e decidir se a fase seguinte usará provider não oficial somente em laboratório ou a API oficial da Meta.
