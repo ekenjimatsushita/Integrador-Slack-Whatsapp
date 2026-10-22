@@ -61,6 +61,8 @@ Workspace `c052922` e app `a6bf72c` implantados após um backup manual; a imagem
 - Nova conversa + mensagem seguinte na mesma thread; após `restart`, a mesma thread foi reutilizada.
 - Rede do container desconectada: `reconnecting`, HTTP 503 e `unhealthy`; reconectada: `connected`, 200 e `healthy`, com a porta ainda em loopback.
 - Script de backup corrigido instalado e mtime dos backups antigos ajustado pelo nome; nenhum backup seria removido de uma vez.
+- Teste humano após a correção (app `1d4869f`): resposta de texto encaminhada uma vez à conversa e thread corretas (`forwarded: 1`); anexo recusado com aviso na thread (`unsupported-media: 1`); edição da mensagem ignorada, sem reenvio; JSON malformado/corpo grande retornam 400/413 genéricos; nenhum conteúdo em log.
+- Limite conhecido: a edição de uma mensagem no Slack é ignorada em silêncio, então o WhatsApp mantém o texto original e quem editou não é avisado. Definir o comportamento (aviso na thread ou envio da correção) antes do uso real.
 - Falha encontrada: um corpo JSON malformado ou grande demais no `send-test` fazia o Express responder com HTML contendo stack trace e um trecho do corpo enviado, e gravar o mesmo no log. Corrigido com um tratador de erro HTTP genérico e `NODE_ENV=production` na imagem.
 
 Para voltar à versão anterior em caso de problema: `git checkout` dos commits anteriores e `docker tag lion-whatsapp-lab-app:rollback-1f00713 lion-whatsapp-lab-app:latest` antes de `up -d` sem `--build`. O estado novo continua compatível com a versão anterior, que ignora `processedEvents`.
