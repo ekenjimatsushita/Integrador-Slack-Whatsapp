@@ -27,6 +27,8 @@ backup_file="$backup_dir/mock-state-$timestamp.json"
 trap 'rm -f -- "$temporary_file"' EXIT
 
 docker cp "$container_id:/data/mock-state.json" "$temporary_file"
+# docker cp keeps the source mtime; reset it so retention counts from the backup time.
+touch -- "$temporary_file"
 chown root:root "$temporary_file"
 chmod 0600 "$temporary_file"
 

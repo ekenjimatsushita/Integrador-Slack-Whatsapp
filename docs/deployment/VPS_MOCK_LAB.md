@@ -73,12 +73,25 @@ Então acesse `http://127.0.0.1:3000` localmente. Não publique `/mock/whatsapp/
 - Dependências de produção: `npm audit --omit=dev` reportou zero vulnerabilidades conhecidas na verificação de 15/10/2026.
 - Firewall: UFW ativo; regras observadas liberam SSH 22 e Nginx 80/443. Nenhuma regra foi alterada para esta aplicação.
 - SSH do host: a configuração efetiva observada permite login root e autenticação por senha e chave pública. Não foi alterada porque afeta a administração do VPS e os demais serviços; o responsável pelo host deve avaliar migrar para chave somente e uma conta administrativa adequada.
-- Backup: um timer do systemd executa backup diário às 03:15 UTC, com atraso aleatório de até 10 minutos e retenção de 14 dias. Os arquivos ficam em `/var/backups/lion-whatsapp-lab`, acessíveis apenas por root (diretório `0700`, arquivos `0600`). O serviço valida o JSON sem exibir seu conteúdo. Consulte abaixo os comandos de operação e restauração.
+- Backup: até 22/10/2026 o script preservava a data de modificação do estado copiado (`docker cp` mantém o mtime original), então todos os backups tinham a data de 16/10 e a retenção os apagaria juntos por volta de 30/10. O script corrigido aplica `touch` na cópia; o comportamento do `docker cp` e a correção foram reproduzidos localmente em 22/10/2026. Depois de instalá-lo, ajuste uma vez os arquivos existentes conforme a seção de backup.
+- Um timer do systemd executa backup diário às 03:15 UTC, com atraso aleatório de até 10 minutos e retenção de 14 dias. Os arquivos ficam em `/var/backups/lion-whatsapp-lab`, acessíveis apenas por root (diretório `0700`, arquivos `0600`). O serviço valida o JSON sem exibir seu conteúdo. Consulte abaixo os comandos de operação e restauração.
 - Limite do backup: a cópia está no mesmo VPS e não protege contra perda do host ou do disco. Ainda é necessário definir um destino externo antes de usar dados reais.
-- O healthcheck HTTP só prova que o processo responde; o campo `slack: started` não representa o estado atual do WebSocket. O teste de resposta real em thread é a evidência funcional do Slack.
-- Recursos não têm limites explícitos no Compose. A leitura inicial após deploy mostrou cerca de 30 MiB para o app; continuar acompanhando CPU/memória junto aos demais containers.
+- A partir da versão com deduplicação, `/health` responde 200 somente com o Socket Mode em `connected` e 503 (`degraded`) nos demais estados. Ainda assim, o teste de resposta real em thread é a evidência funcional do Slack.
+- Compose define `mem_limit: 256m`, `cpus: 0.5`, `pids_limit: 128` e rotação de logs Docker (`json-file`, 3 × 10 MB). Em 22/10/2026 o app usava cerca de 78 MiB. Antes dessa versão o container rodava sem limites e sem rotação de log.
+- Verificação de 22/10/2026 (somente leitura): `fail2ban` inativo, `unattended-upgrades` ativo, UFW sem alteração, disco em 22%. SSH continua com `PermitRootLogin yes` e `PasswordAuthentication yes`.
 
 ## Backup e restauração
+
+Após atualizar o script a partir de `deploy/vps/backup-lion-whatsapp-lab.sh`, corrija uma única vez o mtime dos backups antigos com base no timestamp do nome:
+
+```bash
+cd /opt/lion-ai/slack-whatsapp
+sudo install -o root -g root -m 0700 deploy/vps/backup-lion-whatsapp-lab.sh /usr/local/sbin/backup-lion-whatsapp-lab
+for f in /var/backups/lion-whatsapp-lab/mock-state-*.json; do
+  ts="${f##*/mock-state-}"; ts="${ts%.json}"
+  sudo touch -d "${ts:0:4}-${ts:4:2}-${ts:6:2} ${ts:9:2}:${ts:11:2}:${ts:13:2} UTC" "$f"
+done
+```
 
 O script é instalado em `/usr/local/sbin/backup-lion-whatsapp-lab`; o timer e o serviço são `lion-whatsapp-lab-backup.timer` e `lion-whatsapp-lab-backup.service`. Para conferir a agenda e executar/verificar um backup manual:
 
@@ -114,7 +127,7 @@ Se a validação/restauração falhar antes da substituição, inicie o serviço
 
 1. Continuar o piloto interno do mock e registrar falhas/reconexões.
 2. Definir destino externo para as cópias de backup (o ensaio de restauração em volume temporário foi concluído em 16/10/2026).
-3. Corrigir health/readiness para expor estado real do Socket Mode sem revelar dados.
-4. Implementar deduplicação e estratégia de retry antes de conectar um provider real.
+3. Implantar no VPS a versão com health real, deduplicação, retry, thread por conversa e avisos de falha/anexo; repetir o smoke test incluindo uma segunda mensagem na mesma conversa (`conversationId` no corpo do `send-test`) e um anexo na thread.
+4. Antes de dados reais: SSH somente com chave, sem login root por senha; avaliar `fail2ban`; backup externo; política de retenção das mensagens.
 5. Escolher e encapsular o WhatsApp Adapter conforme o plano. Até essa decisão, manter o mock e não adicionar mídia ou sessão WhatsApp real.
 6. Atualizar os critérios do piloto e decidir se a fase seguinte usará provider não oficial somente em laboratório ou a API oficial da Meta.

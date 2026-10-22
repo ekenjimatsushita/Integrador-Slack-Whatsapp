@@ -24,7 +24,7 @@ docker compose --env-file ../../.env up --build -d
 docker compose --env-file ../../.env run --build --rm --no-deps app npm test
 ```
 
-Verifique `http://127.0.0.1:3000/health` e consulte as mensagens capturadas em `http://127.0.0.1:3000/mock/whatsapp/messages`. `npm test` cobre normalização, roteamento, loop de bot, restrição de canal e mapping de thread. Para o teste de Socket Mode real, faça um `POST` local a `http://127.0.0.1:3000/mock/whatsapp/send-test` para cada conversa simulada e responda na respectiva thread; nenhum envio ocorre para uma conta WhatsApp. O volume persiste os mappings e as últimas 500 mensagens capturadas.
+Verifique `http://127.0.0.1:3000/health` e consulte as mensagens capturadas em `http://127.0.0.1:3000/mock/whatsapp/messages`. `npm test` cobre normalização, roteamento, loop de bot, restrição de canal, mapping de thread, thread única por conversa, deduplicação, retry, avisos de falha/anexo e persistência. Para o teste de Socket Mode real, faça um `POST` local a `http://127.0.0.1:3000/mock/whatsapp/send-test` para cada conversa simulada e responda na respectiva thread; nenhum envio ocorre para uma conta WhatsApp. O volume persiste os mappings e as últimas 500 mensagens capturadas.
 
 O Compose anterior, com validação de Slack Events via HTTP e MongoDB, foi substituído por este fluxo Socket Mode mais enxuto. O guia [`docs/development/LOCAL_DEVELOPMENT.md`](docs/development/LOCAL_DEVELOPMENT.md) detalha como repetir cada validação e onde corrigir cada parte; consulte também [`upstream/WhatsAppInSlack/README.md`](upstream/WhatsAppInSlack/README.md) e `docs/agents/README.md`.
 

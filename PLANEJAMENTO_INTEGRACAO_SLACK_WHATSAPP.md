@@ -6,9 +6,9 @@
 
 ---
 
-## Estado atual da implementação e laboratório VPS (16/10/2026)
+## Estado atual da implementação e laboratório VPS (22/10/2026)
 
-A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. A instalação Slack é configurada por variáveis de ambiente e suporta um workspace por execução; a configuração atual usa o workspace de laboratório/pessoal. O setup do workspace corporativo está descrito em `docs/deployment/SLACK_WORKSPACE_SETUP.md`, com manifesto Slack reutilizável. OAuth e execução simultânea em vários workspaces ainda não estão implementados. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `lion-whatsapp-lab_mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Os 13 testes offline cobrem roteamento e persistência, sem depender de credenciais ou rede. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. A thread de teste continuou mapeada após reinício; respostas humanas chegaram ao mock e foram persistidas. Mídia, deduplicação e integração com WhatsApp real continuam pendentes. O container usa usuário não root, filesystem raiz somente leitura, `/tmp` temporário e sem capabilities adicionais. Um timer systemd faz backup diário local do estado (retenção de 14 dias) e a restauração foi ensaiada em volume temporário em 16/10/2026; ainda falta um destino externo para os backups.
+A aplicação está em `upstream/WhatsAppInSlack`: Slack Bolt em Socket Mode normaliza mensagens e usa `MessageRouter` para restringir o canal e resolver threads para conversas no `MockWhatsAppAdapter`. A instalação Slack é configurada por variáveis de ambiente e suporta um workspace por execução; a configuração atual usa o workspace de laboratório/pessoal. O setup do workspace corporativo está descrito em `docs/deployment/SLACK_WORKSPACE_SETUP.md`, com manifesto Slack reutilizável. OAuth e execução simultânea em vários workspaces ainda não estão implementados. O mock persiste os mappings de threads e as últimas 500 mensagens em JSON dentro do volume Docker `lion-whatsapp-lab_mock_state`; nenhum cliente ou conta WhatsApp real é iniciado. Em 22/10/2026 o código passou a manter uma thread Slack por conversa (mensagens seguintes da mesma conversa entram na thread existente), deduplicar eventos Slack e mensagens WhatsApp com chaves persistidas, repetir envios com backoff, avisar na thread quando a entrega falha ou quando há anexo, selecionar o adapter por `WHATSAPP_ADAPTER` e expor no `/health` o estado real do Socket Mode. Os 28 testes offline cobrem roteamento, persistência e esses cenários sem depender de credenciais ou rede; essa versão ainda precisa ser implantada e validada no VPS. O laboratório `lion-whatsapp-lab` está publicado no VPS `179.198.97.107`, com HTTP limitado a `127.0.0.1:3000`. A thread de teste continuou mapeada após reinício; respostas humanas chegaram ao mock e foram persistidas. Mídia, fila persistente e integração com WhatsApp real continuam pendentes; o workspace Slack corporativo e a conta WhatsApp Business ainda não estão disponíveis. O container usa usuário não root, filesystem raiz somente leitura, `/tmp` temporário e sem capabilities adicionais. Um timer systemd faz backup diário local do estado (retenção de 14 dias) e a restauração foi ensaiada em volume temporário em 16/10/2026; ainda falta um destino externo para os backups.
 
 ## 1. Objetivo deste documento
 
@@ -1703,7 +1703,7 @@ O README deve explicar:
 - [ ] texto bidirecional;
 - [ ] threads;
 - [x] persistência JSON para o laboratório mock, com testes de reload, limite, concorrência e estado inválido; a persistência de produção ainda requer decisão de banco e operação;
-- [ ] deduplicação;
+- [x] deduplicação (chaves persistidas no estado JSON, últimas 5000);
 - [ ] logs.
 
 ## Fase 2 — mídia
@@ -1717,9 +1717,9 @@ O README deve explicar:
 
 ## Fase 3 — confiabilidade
 
-- [ ] retries;
+- [x] retries (3 tentativas com backoff, em memória; falha definitiva avisa na thread);
 - [ ] fila;
-- [ ] health checks;
+- [x] health checks (estado real do Socket Mode);
 - [ ] reconexão;
 - [ ] métricas.
 

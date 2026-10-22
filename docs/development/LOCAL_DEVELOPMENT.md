@@ -63,7 +63,7 @@ docker compose --env-file ../../.env up --build -d
 Invoke-RestMethod http://127.0.0.1:3000/health
 ```
 
-O health esperado inclui `status: ok`, `slack: started` e `whatsappAdapter: mock`. O serviço é exposto somente em `127.0.0.1:3000`.
+O health esperado é HTTP 200 com `status: ok`, `slack: connected` e `whatsappAdapter: mock`. Se a conexão Socket Mode cair, o endpoint responde HTTP 503 com `status: degraded` e o estado atual (`reconnecting`, `disconnected` etc.), e o healthcheck do Compose marca o container como `unhealthy`. O serviço é exposto somente em `127.0.0.1:3000`.
 
 ### Validar uma resposta humana Slack → mock
 
@@ -76,6 +76,14 @@ $testThread | Select-Object status, conversationId, threadTs
 ```
 
 Isso simula uma mensagem recebida do WhatsApp e publica uma mensagem identificada como mock no canal Slack configurado. É um **envio real ao Slack**, não um envio ao WhatsApp. Repita a chamada para criar outras conversas mock; cada thread criada fica mapeada de forma persistente.
+
+Para simular uma segunda mensagem do mesmo contato, envie o `conversationId` retornado. Ela deve aparecer **dentro da thread existente** (`createdThread: false`), e não como nova mensagem raiz:
+
+```powershell
+Invoke-RestMethod -Method Post -ContentType 'application/json' `
+  -Body (@{ conversationId = $testThread.conversationId } | ConvertTo-Json) `
+  http://127.0.0.1:3000/mock/whatsapp/send-test
+```
 
 No Slack, responda **dentro da thread** recém-criada. A resposta humana percorre Bolt → handler → router → mock. Uma mensagem nova no canal, fora de uma thread mapeada, chega ao router, mas é rejeitada com `conversation-not-found` para não ser enviada a uma conversa indeterminada.
 
@@ -107,12 +115,20 @@ docker compose --env-file ../../.env down
 | Canal diferente do `SLACK_CHANNEL_ID` | Teste offline do `MessageRouter` |
 | Thread sem mapeamento | Teste offline; mensagem humana fora da thread foi rejeitada em execução real |
 | Slack rejeita publicação | Teste offline; nenhum mapeamento é registrado nessa falha |
+| Nova mensagem da mesma conversa entra na thread existente, inclusive após reinício | Teste offline; Slack real em 22/10/2026 (1 raiz + respostas do bot na mesma thread, conferido por `conversations.replies`) |
+| Evento Slack ou mensagem WhatsApp reentregue não é processado duas vezes, inclusive após reinício | Teste offline |
+| Falha temporária no envio ao WhatsApp é repetida (3 tentativas); falha definitiva gera aviso na thread sem repetir o texto | Teste offline (o mock não simula falha em execução real) |
+| Falha ao publicar no Slack não marca a mensagem WhatsApp como processada, permitindo a reentrega do provider | Teste offline |
+| Anexo enviado em thread mapeada não é entregue e gera aviso; edições e exclusões continuam ignoradas | Teste offline; anexo humano real em 22/10/2026 gerou `unsupported-media` e o aviso na thread |
+| `/health` reflete a conexão Socket Mode | Container local em 22/10/2026: rede desconectada → `reconnecting`/503/`unhealthy`; reconectada → `connected`/200/`healthy` |
 
-Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 13 testes offline: sete cenários de roteamento Slack/mock e seis cenários de persistência JSON. A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
+Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 28 testes offline: sete cenários de roteamento Slack/mock, seis de persistência JSON e quinze de confiabilidade (thread por conversa, deduplicação, retry, aviso de falha, anexos, compatibilidade do estado antigo e seleção de adapter). A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
+
+Validação da versão com deduplicação em 22/10/2026, em container local (Node 22) com volume separado e o app do VPS pausado durante o teste humano: 28 testes no container; startup recusou `WHATSAPP_ADAPTER=meta`; limites de recursos e rotação de log aplicados; thread única por conversa mantida após reinício; resposta humana encaminhada ao mock (`forwarded: 1`); anexo recusado com aviso; estado com chaves de deduplicação e modo `600`; nenhum conteúdo em log.
 
 O laboratório no VPS `179.198.97.107` iniciou saudável. Uma pessoa respondeu à thread publicada pelo VPS; o router registrou `received: 1`, `forwarded: 1`, sem rejeições, e a resposta foi capturada no volume. O container foi reiniciado antes da resposta, validando a recuperação do mapping. A verificação do inbox deve mostrar somente contagens/IDs, sem imprimir o texto da mensagem em relatórios.
 
-O endpoint `/health` confirma que o processo HTTP está respondendo; o campo `slack: started` não monitora o estado atual do WebSocket. Para confirmar Slack ponta a ponta, use uma resposta humana em thread de laboratório. A configuração atual mantém `/health`, `/mock/whatsapp/messages`, `/debug/router` e `/mock/whatsapp/send-test` acessíveis apenas no loopback do VPS; os três últimos não possuem autenticação, e o inbox contém conteúdo da equipe.
+O endpoint `/health` reflete o estado da conexão Socket Mode, mas não prova que eventos e permissões estão corretos. Para confirmar Slack ponta a ponta, use uma resposta humana em thread de laboratório. A configuração atual mantém `/health`, `/mock/whatsapp/messages`, `/debug/router` e `/mock/whatsapp/send-test` acessíveis apenas no loopback do VPS; os três últimos não possuem autenticação, e o inbox contém conteúdo da equipe.
 
 O procedimento, a configuração efetiva do VPS, os testes de implantação e os pontos operacionais estão em [`docs/deployment/VPS_MOCK_LAB.md`](../deployment/VPS_MOCK_LAB.md).
 
@@ -122,21 +138,26 @@ O procedimento, a configuração efetiva do VPS, os testes de implantação e os
 |---|---|
 | Socket Mode, startup, endpoints locais ou assinatura `app.message()` | `upstream/WhatsAppInSlack/app/app.js` |
 | Ignorar bot/subtypes e converter o evento Slack para campos normalizados | `upstream/WhatsAppInSlack/app/slackMessageHandler.js` |
-| Canal permitido, conteúdo válido, resolução da conversa e chamada a `sendMessage()` | `upstream/WhatsAppInSlack/app/application/MessageRouter.js` |
+| Canal permitido, conteúdo válido, resolução da conversa, deduplicação, retry e chamada a `sendMessage()`/publicação no Slack | `upstream/WhatsAppInSlack/app/application/MessageRouter.js` |
 | Chave que associa canal + thread raiz a `conversationId` | `upstream/WhatsAppInSlack/app/adapters/slack/ConversationRegistry.js` e `app/persistence/JsonStateStore.js` |
 | Mensagens capturadas e eventos simulados pelo WhatsApp mock | `upstream/WhatsAppInSlack/app/adapters/MockWhatsAppAdapter.js` |
-| Formato de publicação no Slack e registro da thread após sucesso | `upstream/WhatsAppInSlack/app/slackMessagePublisher.js` |
+| Formato de publicação no Slack, reaproveitamento da thread da conversa e registro da thread após sucesso | `upstream/WhatsAppInSlack/app/slackMessagePublisher.js` |
+| Chaves de eventos já processados (deduplicação, últimas 5000) | `upstream/WhatsAppInSlack/app/application/EventDeduplicator.js` e `app/persistence/JsonStateStore.js` |
+| Avisos fixos na thread para falha de entrega e anexos | `upstream/WhatsAppInSlack/app/slackFailureNotifier.js` |
+| Escolha do adapter por `WHATSAPP_ADAPTER` (hoje só `mock`) | `upstream/WhatsAppInSlack/app/adapters/createWhatsAppAdapter.js` |
 | Cenários de roteamento, loop, canal e threads | `upstream/WhatsAppInSlack/app/test/messageRouting.test.js` |
 | Persistência: reload, atualização de mapping, limite, concorrência e estado inválido | `upstream/WhatsAppInSlack/app/test/jsonStateStore.test.js` |
-| Variáveis injetadas, porta local e healthcheck | `upstream/WhatsAppInSlack/docker-compose.yml` |
+| Thread por conversa, deduplicação, retry, avisos, anexos e factory do adapter | `upstream/WhatsAppInSlack/app/test/reliability.test.js` |
+| Variáveis injetadas, porta local, healthcheck, limites de recursos e rotação de logs | `upstream/WhatsAppInSlack/docker-compose.yml` |
 | Runtime e instalação de dependências | `upstream/WhatsAppInSlack/Dockerfile` e `app/package.json` |
 
 ### Limites intencionais do mock
 
 - O inbox persiste apenas as últimas 500 mensagens capturadas; o conteúdo inclui texto enviado pela equipe no Slack.
-- Só mensagens de texto estão implementadas neste caminho.
+- Só mensagens de texto estão implementadas neste caminho. Anexos enviados numa thread mapeada recebem um aviso fixo e não são encaminhados.
 - O `MessageRouter` exige uma thread previamente registrada para identificar a conversa WhatsApp de destino.
-- Nenhum cliente, QR code, sessão ou credencial WhatsApp é iniciado ou requerido.
+- Nenhum cliente, QR code, sessão ou credencial WhatsApp é iniciado ou requerido. `WHATSAPP_ADAPTER` aceita apenas `mock`; outro valor encerra o startup com `unsupported_whatsapp_adapter`. Os endpoints `/mock/*` só existem quando o adapter é o mock.
+- O texto enviado ao WhatsApp não identifica a pessoa que respondeu no Slack. Incluir o nome exige o escopo `users:read` e uma decisão de produto.
 - Persistência de mídia e adapter WhatsApp real são etapas futuras e não devem ser introduzidos ao alterar esta parte sem decisão explícita de arquitetura.
 
 ## Diagnóstico seguro de credenciais
