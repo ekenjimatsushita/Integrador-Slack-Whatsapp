@@ -62,6 +62,7 @@ test('Bolt human message reaches MessageRouter with normalized Slack fields', as
     senderIsBot: false,
     text: 'Mensagem humana',
     threadTs: undefined,
+    hasFiles: false,
   }]);
 });
 
@@ -157,7 +158,7 @@ test('a Slack API rejection does not create a thread mapping', async () => {
 
   await assert.rejects(
     () => publish({ conversationId: CONVERSATION_ID, text: 'Mensagem de teste' }),
-    /Slack rejected the mock message/,
+    /Slack rejected the WhatsApp message/,
   );
   assert.equal(conversationRegistry.resolve(ALLOWED_CHANNEL, ROOT_TS), undefined);
 });

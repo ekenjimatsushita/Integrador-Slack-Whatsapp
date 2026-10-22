@@ -10,7 +10,7 @@ class JsonStateStore {
     }
 
     this.filePath = filePath;
-    this.state = { version: STATE_VERSION, conversations: [], messages: [] };
+    this.state = { version: STATE_VERSION, conversations: [], messages: [], processedEvents: [] };
     this.writeQueue = Promise.resolve();
   }
 
@@ -22,6 +22,10 @@ class JsonStateStore {
       const contents = await fs.readFile(this.filePath, 'utf8');
       const state = JSON.parse(contents);
       if (state.version !== STATE_VERSION || !Array.isArray(state.conversations) || !Array.isArray(state.messages)) {
+        throw new Error('The persisted mock state has an unsupported format.');
+      }
+      if (state.processedEvents === undefined) state.processedEvents = [];
+      if (!Array.isArray(state.processedEvents)) {
         throw new Error('The persisted mock state has an unsupported format.');
       }
       this.state = state;
@@ -37,6 +41,10 @@ class JsonStateStore {
 
   listMessages() {
     return this.state.messages.map(message => ({ ...message, metadata: { ...message.metadata } }));
+  }
+
+  listProcessedEvents() {
+    return [...this.state.processedEvents];
   }
 
   async saveConversation({ channelId, threadTs, conversationId }) {
@@ -55,6 +63,14 @@ class JsonStateStore {
     this.state.messages.push({ ...message, metadata: { ...message.metadata } });
     if (this.state.messages.length > maxMessages) {
       this.state.messages.splice(0, this.state.messages.length - maxMessages);
+    }
+    await this.persist();
+  }
+
+  async appendProcessedEvent(eventKey, maxEvents) {
+    this.state.processedEvents.push(eventKey);
+    if (this.state.processedEvents.length > maxEvents) {
+      this.state.processedEvents.splice(0, this.state.processedEvents.length - maxEvents);
     }
     await this.persist();
   }

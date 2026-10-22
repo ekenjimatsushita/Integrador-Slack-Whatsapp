@@ -26,7 +26,9 @@ Invoke-RestMethod http://127.0.0.1:3000/health
 Invoke-RestMethod http://127.0.0.1:3000/mock/whatsapp/messages
 ```
 
-The app only forwards replies within a thread that has a registered mock conversation. Make a local `POST` to `http://127.0.0.1:3000/mock/whatsapp/send-test` for each simulated conversation. Each request posts a Slack root message and persists its thread mapping; reply inside each Slack thread to exercise Socket Mode → `MessageRouter` → mock. The inbox keeps the latest 500 captured messages. `GET /debug/router` exposes message counters/rejection reasons, and `GET /mock/whatsapp/messages` exposes captured message content. Keep these endpoints bound to localhost.
+`/health` returns 200 with `slack: connected` only while the Socket Mode connection is up, and 503 (`degraded`) otherwise.
+
+The app only forwards replies within a thread that has a registered mock conversation. Make a local `POST` to `http://127.0.0.1:3000/mock/whatsapp/send-test` for each simulated conversation. Each request posts a Slack root message and persists its thread mapping; send `{"conversationId": "<id>"}` as JSON to post a follow-up message into that conversation's existing thread; reply inside each Slack thread to exercise Socket Mode → `MessageRouter` → mock. The inbox keeps the latest 500 captured messages. `GET /debug/router` exposes message counters/rejection reasons, and `GET /mock/whatsapp/messages` exposes captured message content. Keep these endpoints bound to localhost.
 
 Run the offline handler and adapter tests in the container:
 
@@ -40,12 +42,15 @@ Shut down the app with `docker compose down`. No real WhatsApp account is requir
 
 - `app/app.js`: starts the local HTTP endpoints and Slack Bolt Socket Mode.
 - `app/slackMessageHandler.js`: filters and normalizes incoming Slack events.
-- `app/application/MessageRouter.js`: enforces channel and conversation routing.
-- `app/adapters/slack/ConversationRegistry.js`: maps Slack thread roots to mock conversation IDs.
+- `app/application/MessageRouter.js`: enforces channel and conversation routing in both directions, deduplication, retries, and failure notices.
+- `app/application/EventDeduplicator.js`: remembers processed Slack/WhatsApp event keys (latest 5000, persisted).
+- `app/adapters/createWhatsAppAdapter.js`: selects the adapter from `WHATSAPP_ADAPTER` (only `mock` today).
+- `app/slackFailureNotifier.js`: posts fixed notices in a thread for failed deliveries and unsupported attachments.
+- `app/adapters/slack/ConversationRegistry.js`: maps Slack thread roots to conversation IDs and back, so a conversation keeps one thread.
 - `app/persistence/JsonStateStore.js`: atomically stores mock messages and mappings in `/data/mock-state.json`.
 - `app/slackMessagePublisher.js`: publishes simulated WhatsApp messages with Slack `chat.postMessage` and registers their thread mapping.
 - `app/adapters/MockWhatsAppAdapter.js`: captures Slack messages locally and can simulate incoming WhatsApp text.
-- `app/test/`: offline tests for event normalization, bot loop prevention, channel restriction, thread mapping, and delivery to the mock.
+- `app/test/`: offline tests for event normalization, bot loop prevention, channel restriction, thread mapping, deduplication, retries, notices, persistence, and delivery to the mock.
 
 Compose mounts the named `mock_state` volume at `/data`, so messages and thread mappings survive container replacement and restart. Do not run `docker compose down -v` unless you intend to delete this state. Back up the volume before moving or removing the deployment. The state includes Slack message text and should be handled as private team data.
 

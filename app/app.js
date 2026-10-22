@@ -2,12 +2,16 @@ const express = require('express');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { JsonStateStore } = require('./persistence/JsonStateStore');
-const { App } = require('@slack/bolt');
-const { MockWhatsAppAdapter } = require('./adapters/MockWhatsAppAdapter');
+const { App, SocketModeReceiver } = require('@slack/bolt');
+const { createWhatsAppAdapter } = require('./adapters/createWhatsAppAdapter');
 const { ConversationRegistry } = require('./adapters/slack/ConversationRegistry');
+const { EventDeduplicator } = require('./application/EventDeduplicator');
 const { MessageRouter } = require('./application/MessageRouter');
+const { createSlackFailureNotifier } = require('./slackFailureNotifier');
 const { createSlackMessageHandler } = require('./slackMessageHandler');
 const { createSlackMessagePublisher } = require('./slackMessagePublisher');
+
+const SOCKET_STATES = ['connecting', 'authenticated', 'connected', 'reconnecting', 'disconnecting', 'disconnected'];
 
 async function main() {
   const botToken = process.env.SLACK_BOT_TOKEN;
@@ -21,67 +25,52 @@ async function main() {
     filePath: process.env.STATE_FILE || path.join('/data', 'mock-state.json'),
   });
   await stateStore.initialize();
-  const whatsappAdapter = new MockWhatsAppAdapter({
-    initialMessages: stateStore.listMessages(),
-    stateStore,
-  });
+  const whatsappAdapter = createWhatsAppAdapter(process.env.WHATSAPP_ADAPTER || 'mock', { stateStore });
   const conversationRegistry = new ConversationRegistry({
     initialMappings: stateStore.listConversations(),
     stateStore,
   });
+  const receiver = new SocketModeReceiver({ appToken, logLevel: 'WARN' });
+  let slackConnection = 'connecting';
+  for (const state of SOCKET_STATES) receiver.client.on(state, () => { slackConnection = state; });
+  const slackApp = new App({ token: botToken, receiver, logLevel: 'WARN' });
   const messageRouter = new MessageRouter({
     whatsappAdapter,
     conversationRegistry,
     allowedChannelId: channelId,
-  });
-  const slackApp = new App({
-    token: botToken,
-    socketMode: true,
-    appToken,
-    logLevel: 'WARN',
-  });
-  slackApp.message(createSlackMessageHandler(messageRouter));
-  if (channelId) {
-    whatsappAdapter.onMessage(createSlackMessagePublisher({
+    deduplicator: new EventDeduplicator({ stateStore }),
+    failureNotifier: createSlackFailureNotifier({ slackClient: slackApp.client }),
+    slackPublisher: channelId ? createSlackMessagePublisher({
       slackClient: slackApp.client,
       channelId,
       conversationRegistry,
-    }));
-  }
+      sourceLabel: whatsappAdapter.sourceLabel,
+    }) : undefined,
+  });
+  const handleSlackMessage = createSlackMessageHandler(messageRouter);
+  slackApp.message(async (args) => {
+    const result = await handleSlackMessage(args);
+    if (result?.reason === 'delivery-failed') console.warn('Slack → WhatsApp delivery failed after retries.');
+  });
+  // Logs only an error code: Slack and provider errors can carry message content.
+  slackApp.error(async (error) => {
+    console.error(`Slack listener error (${error?.code || error?.data?.error || 'details-suppressed'}).`);
+  });
+  whatsappAdapter.onMessage(message => messageRouter.routeFromWhatsApp(message));
 
   const httpApp = express();
   httpApp.get('/health', (_request, response) => {
-    response.status(200).json({ status: 'ok', slack: 'started', whatsappAdapter: 'mock' });
-  });
-  httpApp.get('/mock/whatsapp/messages', (_request, response) => {
-    response.json({ messages: whatsappAdapter.listMessages() });
+    const connected = slackConnection === 'connected';
+    response.status(connected ? 200 : 503).json({
+      status: connected ? 'ok' : 'degraded',
+      slack: slackConnection,
+      whatsappAdapter: whatsappAdapter.name,
+    });
   });
   httpApp.get('/debug/router', (_request, response) => {
     response.json(messageRouter.getStats());
   });
-  httpApp.post('/mock/whatsapp/send-test', async (_request, response) => {
-    if (!channelId) {
-      return response.status(503).json({ error: 'SLACK_CHANNEL_ID is not configured.' });
-    }
-
-    try {
-      const timestamp = new Date().toISOString();
-      const conversationId = `mock-conversation-${randomUUID()}`;
-      const slackResponses = await whatsappAdapter.receiveMessage({
-        conversationId,
-        text: `Teste real de integração MockWhatsAppAdapter → Slack (${timestamp}).`,
-      });
-      const slackResponse = slackResponses[0];
-      if (!slackResponse) throw new Error('Slack publisher is not configured.');
-      return response.status(200).json({
-        status: 'sent',
-        conversationId,
-        threadTs: slackResponse.ts,
-      });
-    } catch (_error) {
-      return response.status(502).json({ error: 'Slack did not accept the mock test message.' });
-    }
-  });
+  if (whatsappAdapter.name === 'mock') registerMockEndpoints(httpApp, { channelId, whatsappAdapter });
 
   const port = Number(process.env.PORT || 3000);
   await slackApp.start();
@@ -98,12 +87,47 @@ async function main() {
   process.once('SIGTERM', shutdown);
 }
 
+function registerMockEndpoints(httpApp, { channelId, whatsappAdapter }) {
+  httpApp.get('/mock/whatsapp/messages', (_request, response) => {
+    response.json({ messages: whatsappAdapter.listMessages() });
+  });
+  httpApp.post('/mock/whatsapp/send-test', express.json({ limit: '1kb' }), async (request, response) => {
+    if (!channelId) {
+      return response.status(503).json({ error: 'SLACK_CHANNEL_ID is not configured.' });
+    }
+    // An existing conversationId posts into its current thread instead of creating a new one.
+    const requestedId = request.body?.conversationId;
+    if (requestedId !== undefined && (typeof requestedId !== 'string' || !/^[\w-]{1,100}$/.test(requestedId))) {
+      return response.status(400).json({ error: 'conversationId must be 1-100 letters, digits, _ or -.' });
+    }
+
+    try {
+      const timestamp = new Date().toISOString();
+      const conversationId = requestedId || `mock-conversation-${randomUUID()}`;
+      const [result] = await whatsappAdapter.receiveMessage({
+        conversationId,
+        messageId: `mock-message-${randomUUID()}`,
+        text: `Teste real de integração MockWhatsAppAdapter → Slack (${timestamp}).`,
+      });
+      if (!result?.published) throw new Error('The mock message was not published.');
+      return response.status(200).json({
+        status: 'sent',
+        conversationId,
+        threadTs: result.threadTs,
+        createdThread: result.createdThread,
+      });
+    } catch (_error) {
+      return response.status(502).json({ error: 'Slack did not accept the mock test message.' });
+    }
+  });
+}
+
 if (require.main === module) {
   main().catch((error) => {
     const safeCodes = new Set([
       'invalid_auth', 'not_authed', 'token_revoked', 'missing_scope', 'not_in_channel',
       'channel_not_found', 'account_inactive', 'ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT',
-      'EAI_AGAIN', 'EACCES', 'EADDRINUSE',
+      'EAI_AGAIN', 'EACCES', 'EADDRINUSE', 'unsupported_whatsapp_adapter',
     ]);
     const possibleCode = error?.data?.error || error?.code;
     const safeCode = safeCodes.has(possibleCode) ? possibleCode : 'details-suppressed';

@@ -7,6 +7,7 @@ services:
       SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN:?Set SLACK_BOT_TOKEN in the environment file}
       SLACK_APP_TOKEN: ${SLACK_APP_TOKEN:?Set SLACK_APP_TOKEN in the environment file}
       SLACK_CHANNEL_ID: ${SLACK_CHANNEL_ID:-}
+      WHATSAPP_ADAPTER: ${WHATSAPP_ADAPTER:-mock}
     ports:
       - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
     volumes:
@@ -18,6 +19,14 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]

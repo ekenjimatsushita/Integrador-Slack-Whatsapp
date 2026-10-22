@@ -4,6 +4,8 @@ class MockWhatsAppAdapter {
     this.messages = initialMessages.map(message => ({ ...message, metadata: { ...message.metadata } }));
     this.messageListeners = [];
     this.stateStore = stateStore;
+    this.name = 'mock';
+    this.sourceLabel = 'WhatsApp (mock)';
   }
 
   async sendMessage(outboundMessage) {
