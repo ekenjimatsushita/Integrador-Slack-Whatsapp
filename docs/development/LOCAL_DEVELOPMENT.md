@@ -122,7 +122,7 @@ docker compose --env-file ../../.env down
 | Anexo enviado em thread mapeada não é entregue e gera aviso; edições e exclusões continuam ignoradas | Teste offline; anexo humano real em 22/10/2026 gerou `unsupported-media` e o aviso na thread |
 | `/health` reflete a conexão Socket Mode | Container local em 22/10/2026: rede desconectada → `reconnecting`/503/`unhealthy`; reconectada → `connected`/200/`healthy` |
 
-Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 28 testes offline: sete cenários de roteamento Slack/mock, seis de persistência JSON e quinze de confiabilidade (thread por conversa, deduplicação, retry, aviso de falha, anexos, compatibilidade do estado antigo e seleção de adapter). A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
+Os testes ficam em `upstream/WhatsAppInSlack/app/test/`. São 31 testes offline: sete cenários de roteamento Slack/mock, seis de persistência JSON, quinze de confiabilidade (thread por conversa, deduplicação, retry, aviso de falha, anexos, compatibilidade do estado antigo e seleção de adapter) e três de erros HTTP genéricos, sem eco do corpo nem stack trace. A suíte inclui reload do estado, atualização de mapping, limite de 500 mensagens, gravações concorrentes e rejeição de JSON/schema inválidos. Eles rodam sem Slack, rede ou credenciais e também podem ser executados na própria VPS dentro do container Compose.
 
 Validação da versão com deduplicação em 22/10/2026, em container local (Node 22) com volume separado e o app do VPS pausado durante o teste humano: 28 testes no container; startup recusou `WHATSAPP_ADAPTER=meta`; limites de recursos e rotação de log aplicados; thread única por conversa mantida após reinício; resposta humana encaminhada ao mock (`forwarded: 1`); anexo recusado com aviso; estado com chaves de deduplicação e modo `600`; nenhum conteúdo em log.
 
@@ -145,6 +145,7 @@ O procedimento, a configuração efetiva do VPS, os testes de implantação e os
 | Chaves de eventos já processados (deduplicação, últimas 5000) | `upstream/WhatsAppInSlack/app/application/EventDeduplicator.js` e `app/persistence/JsonStateStore.js` |
 | Avisos fixos na thread para falha de entrega e anexos | `upstream/WhatsAppInSlack/app/slackFailureNotifier.js` |
 | Escolha do adapter por `WHATSAPP_ADAPTER` (hoje só `mock`) | `upstream/WhatsAppInSlack/app/adapters/createWhatsAppAdapter.js` |
+| Respostas de erro HTTP (JSON malformado, corpo grande, erro interno) | `upstream/WhatsAppInSlack/app/httpErrorHandler.js` e `app/test/httpErrorHandler.test.js` |
 | Cenários de roteamento, loop, canal e threads | `upstream/WhatsAppInSlack/app/test/messageRouting.test.js` |
 | Persistência: reload, atualização de mapping, limite, concorrência e estado inválido | `upstream/WhatsAppInSlack/app/test/jsonStateStore.test.js` |
 | Thread por conversa, deduplicação, retry, avisos, anexos e factory do adapter | `upstream/WhatsAppInSlack/app/test/reliability.test.js` |

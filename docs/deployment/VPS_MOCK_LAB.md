@@ -52,6 +52,19 @@ Responda na thread no Slack. Em seguida, confira localmente `/mock/whatsapp/mess
 
 Execução validada em 15/10/2026: 13 testes offline passaram dentro do container no VPS; a chamada de smoke test foi aceita pelo Slack; após reinício, a resposta humana foi roteada e capturada. Depois do hardening, uma nova resposta humana na thread também foi encaminhada: `received: 1`, `forwarded: 1`, sem rejeições; o mock passou a registrar duas mensagens. Um backup manual feito em seguida confirmou uma conversa e duas mensagens na cópia, sem exibir o conteúdo.
 
+### Implantação de 22/10/2026 (versão com deduplicação)
+
+Workspace `c052922` e app `a6bf72c` implantados após um backup manual; a imagem anterior foi mantida como `lion-whatsapp-lab-app:rollback-1f00713`. Resultados no VPS:
+
+- 28 testes no container; `/health` 200 com `slack: connected`; limites (256 MiB, 0,5 CPU, 128 PIDs), rotação de logs, filesystem somente leitura, usuário `node`, porta só em loopback.
+- O estado anterior (1 conversa, 2 mensagens) foi carregado sem migração; uma nova mensagem para a conversa antiga entrou na thread existente.
+- Nova conversa + mensagem seguinte na mesma thread; após `restart`, a mesma thread foi reutilizada.
+- Rede do container desconectada: `reconnecting`, HTTP 503 e `unhealthy`; reconectada: `connected`, 200 e `healthy`, com a porta ainda em loopback.
+- Script de backup corrigido instalado e mtime dos backups antigos ajustado pelo nome; nenhum backup seria removido de uma vez.
+- Falha encontrada: um corpo JSON malformado ou grande demais no `send-test` fazia o Express responder com HTML contendo stack trace e um trecho do corpo enviado, e gravar o mesmo no log. Corrigido com um tratador de erro HTTP genérico e `NODE_ENV=production` na imagem.
+
+Para voltar à versão anterior em caso de problema: `git checkout` dos commits anteriores e `docker tag lion-whatsapp-lab-app:rollback-1f00713 lion-whatsapp-lab-app:latest` antes de `up -d` sem `--build`. O estado novo continua compatível com a versão anterior, que ignora `processedEvents`.
+
 ## Acesso da equipe e rede
 
 A equipe usa o canal Slack configurado. Não existe uma interface web para usuários finais. A API HTTP do laboratório está limitada a `127.0.0.1:3000`; o VPS não abriu essa porta no UFW. Nginx continua nas portas 80/443, e SSH permanece na 22.
@@ -77,6 +90,7 @@ Então acesse `http://127.0.0.1:3000` localmente. Não publique `/mock/whatsapp/
 - Um timer do systemd executa backup diário às 03:15 UTC, com atraso aleatório de até 10 minutos e retenção de 14 dias. Os arquivos ficam em `/var/backups/lion-whatsapp-lab`, acessíveis apenas por root (diretório `0700`, arquivos `0600`). O serviço valida o JSON sem exibir seu conteúdo. Consulte abaixo os comandos de operação e restauração.
 - Limite do backup: a cópia está no mesmo VPS e não protege contra perda do host ou do disco. Ainda é necessário definir um destino externo antes de usar dados reais.
 - A partir da versão com deduplicação, `/health` responde 200 somente com o Socket Mode em `connected` e 503 (`degraded`) nos demais estados. Ainda assim, o teste de resposta real em thread é a evidência funcional do Slack.
+- `unhealthy` não reinicia o container nem avisa ninguém: a política `unless-stopped` só age quando o processo termina. O cliente Socket Mode se reconecta sozinho em quedas de rede, mas uma falha persistente (token revogado, app removido) deixa o serviço parado em silêncio. Antes de uso real, adicionar alerta externo sobre o estado de saúde.
 - Compose define `mem_limit: 256m`, `cpus: 0.5`, `pids_limit: 128` e rotação de logs Docker (`json-file`, 3 × 10 MB). Em 22/10/2026 o app usava cerca de 78 MiB. Antes dessa versão o container rodava sem limites e sem rotação de log.
 - Verificação de 22/10/2026 (somente leitura): `fail2ban` inativo, `unattended-upgrades` ativo, UFW sem alteração, disco em 22%. SSH continua com `PermitRootLogin yes` e `PasswordAuthentication yes`.
 
@@ -116,10 +130,12 @@ Valide o schema, escreva um arquivo temporário no volume e substitua o estado a
 docker run --rm --network none --read-only --user 0:0 \
   --mount "type=bind,source=/var/backups/lion-whatsapp-lab/$backup_file,target=/backup/state.json,readonly" \
   --mount type=volume,source=lion-whatsapp-lab_mock_state,target=/restore \
-  --entrypoint node lion-whatsapp-lab-app:latest -e 'const fs=require("node:fs"); const raw=fs.readFileSync("/backup/state.json","utf8"); const s=JSON.parse(raw); if(s.version!==1||!Array.isArray(s.conversations)||!Array.isArray(s.messages)) process.exit(1); const tmp="/restore/.mock-state.json.restore"; fs.writeFileSync(tmp,raw,{mode:0o600}); fs.chownSync(tmp,1000,1000); fs.chmodSync(tmp,0o600); fs.renameSync(tmp,"/restore/mock-state.json");'
+  --entrypoint node lion-whatsapp-lab-app:latest -e 'const fs=require("node:fs"); const raw=fs.readFileSync("/backup/state.json","utf8"); const s=JSON.parse(raw); if(s.version!==1||!Array.isArray(s.conversations)||!Array.isArray(s.messages)) process.exit(1); fs.chownSync("/restore",1000,1000); fs.chmodSync("/restore",0o700); const tmp="/restore/.mock-state.json.restore"; fs.writeFileSync(tmp,raw,{mode:0o600}); fs.chownSync(tmp,1000,1000); fs.chmodSync(tmp,0o600); fs.renameSync(tmp,"/restore/mock-state.json");'
 docker compose -p lion-whatsapp-lab --env-file .env up -d app
 curl -fsS http://127.0.0.1:3000/health
 ```
+
+O `chown` da raiz do volume é necessário ao restaurar num volume **novo** (perda do volume ou volume separado para outro workspace): um volume criado vazio pertence ao root, e o app, que roda como `node`, falha na inicialização com `EPERM`. No volume ativo a raiz já pertence ao UID 1000 e o comando não muda nada. Esse caso foi encontrado e validado no ensaio de 22/10/2026: restauração num volume novo, carga do estado pelo app como UID 1000, deduplicação e busca de thread funcionando; o volume temporário foi removido.
 
 Se a validação/restauração falhar antes da substituição, inicie o serviço novamente para voltar ao estado atual. Confira as contagens sem imprimir as mensagens. Nunca use `docker compose down -v` no projeto ativo. O backup local ainda não protege contra perda do VPS; configure uma cópia externa antes de armazenar dados reais.
 
